@@ -443,27 +443,41 @@ function ensureAudio(){
   startAmbientMusic();
 }
 
+let musicTimer = null;
+function playBellNote(freq, time, dur=0.5, vol=0.16){
+  const osc = actx.createOscillator();
+  const osc2 = actx.createOscillator();
+  const g = actx.createGain();
+  osc.type = 'sine'; osc.frequency.value = freq;
+  osc2.type = 'triangle'; osc2.frequency.value = freq*2; // soft bell harmonic
+  const g2 = actx.createGain(); g2.gain.value = 0.18;
+  osc2.connect(g2); g2.connect(g);
+  g.gain.setValueAtTime(0.0001, time);
+  g.gain.exponentialRampToValueAtTime(vol, time+0.03);
+  g.gain.exponentialRampToValueAtTime(0.0001, time+dur);
+  osc.connect(g); g.connect(musicGain);
+  osc.start(time); osc.stop(time+dur+0.05);
+  osc2.start(time); osc2.stop(time+dur+0.05);
+}
 function startAmbientMusic(){
-  const notes = [261.6, 329.6, 392.0, 523.3]; // gentle C major pad
-  notes.forEach((freq, i)=>{
-    const osc = actx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-    const g = actx.createGain();
-    g.gain.value = 0;
-    osc.connect(g); g.connect(musicGain);
-    osc.start();
-    // slow swell in
-    g.gain.linearRampToValueAtTime(0.05 + i*0.01, actx.currentTime + 3 + i);
-    // slow LFO on gain for a magical shimmer
-    const lfo = actx.createOscillator();
-    lfo.frequency.value = 0.08 + i*0.02;
-    const lfoGain = actx.createGain();
-    lfoGain.gain.value = 0.02;
-    lfo.connect(lfoGain); lfoGain.connect(g.gain);
-    lfo.start();
-    musicNodes.push({osc, g, lfo});
-  });
+  // douce mélodie de boîte à musique, joyeuse et rassurante pour enfant
+  const C=261.6,D=293.7,E=329.6,G=392.0,A=440.0,C2=523.3,D2=587.3,E2=659.3;
+  const melody = [
+    {n:E,d:0.42},{n:G,d:0.42},{n:A,d:0.42},{n:G,d:0.42},
+    {n:E,d:0.42},{n:D,d:0.42},{n:C,d:0.62},{n:0,d:0.3},
+    {n:C2,d:0.42},{n:A,d:0.42},{n:G,d:0.42},{n:E,d:0.42},
+    {n:D,d:0.42},{n:E,d:0.42},{n:D,d:0.62},{n:0,d:0.5}
+  ];
+  function scheduleLoop(){
+    let t = actx.currentTime + 0.05;
+    melody.forEach(note=>{
+      if(note.n) playBellNote(note.n, t, note.d*0.95, 0.13);
+      t += note.d;
+    });
+    const loopDur = melody.reduce((s,n)=>s+n.d,0);
+    musicTimer = setTimeout(scheduleLoop, loopDur*1000);
+  }
+  scheduleLoop();
 }
 
 function toneChime(freqs, dur=0.18, gap=0.09, type='sine', vol=0.22){
